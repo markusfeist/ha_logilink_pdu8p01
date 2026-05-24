@@ -1,0 +1,38 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up LogiLink PDU8P01",
+        "description": "Enter the connection details for your PDU.",
+        "data": {
+          "host": "IP Address / Hostname",
+          "username": "Username",
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the PDU. Check the IP address and credentials.",
+      "unknown": "An unexpected error occurred."
+    },
+    "abort": {
+      "already_configured": "This PDU is already configured."
+    }
+  },
+  "services": {
+    "reload_config": {
+      "name": "Reload configuration",
+      "description": "Reloads the outlet names and delay times directly from the PDU."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Options",
+        "data": {
+          "scan_interval": "Poll interval (seconds)"
+        }
+      }
+    }
+  }
+}

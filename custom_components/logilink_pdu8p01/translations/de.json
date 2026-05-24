@@ -1,0 +1,38 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "LogiLink PDU8P01 einrichten",
+        "description": "Verbindungsdaten zur PDU eingeben.",
+        "data": {
+          "host": "IP-Adresse / Hostname",
+          "username": "Benutzername",
+          "password": "Passwort"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Verbindung zur PDU fehlgeschlagen. IP-Adresse und Anmeldedaten prüfen.",
+      "unknown": "Unbekannter Fehler aufgetreten."
+    },
+    "abort": {
+      "already_configured": "Diese PDU ist bereits eingerichtet."
+    }
+  },
+  "services": {
+    "reload_config": {
+      "name": "Konfiguration neu laden",
+      "description": "Lädt die Namen der Steckdosen und die Verzögerungszeiten direkt von der PDU neu."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Optionen",
+        "data": {
+          "scan_interval": "Abfrageintervall (Sekunden)"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,28 @@
+# Home Assistant Core & Configs, falls die versehentlich "reinkommen"
+*.log
+*.db
+*.db-shm
+*.db-wal
+__pycache__/
+*.pyc
+secrets.yaml
+.storage/
+.cloud/
+.google.token
+deps/
+custom_components/pytest_cache/
+
+# PyCharm / JetBrains IDE
+.idea/
+*.iml
+out/
+
+# Python Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+
+# Betriebssystem-Dateien
+.DS_Store
+Thumbs.db
