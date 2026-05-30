@@ -1,7 +1,7 @@
 {
   "domain": "logilink_pdu8p01",
   "name": "LogiLink PDU8P01",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "codeowners": [ "@markusfeist" ],
   "config_flow": true,
   "documentation": "https://github.com/markusfeist/ha_logilink_pdu8p01",

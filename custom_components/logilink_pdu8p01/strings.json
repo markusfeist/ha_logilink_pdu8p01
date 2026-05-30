@@ -36,6 +36,10 @@
     "reload_config": {
       "name": "Konfiguration neu laden",
       "description": "Lädt die Namen der Steckdosen und die Verzögerungszeiten direkt von der PDU neu."
+    },
+    "restart_outlet": {
+      "name": "Steckdose neu starten",
+      "description": "Schaltet eine Steckdose kurz aus und wieder an (oder nur an)."
     }
   },
   "options": {

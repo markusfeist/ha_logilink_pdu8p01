@@ -1,2 +1,15 @@
 reload_config:
   description: Lädt die Konfiguration (Steckdosennamen und Delays) direkt von der PDU neu.
+
+restart_outlet:
+  description: Schaltet eine Steckdose kurz aus und wieder an (oder nur an), um einen Neustart zu erzwingen.
+  fields:
+    entity_id:
+      name: Entität
+      description: Die Steckdose(n), die neu gestartet werden sollen.
+      example: switch.pdu_outlet_1
+      selector:
+        entity:
+          domain: switch
+          integration: logilink_pdu8p01
+          multiple: true

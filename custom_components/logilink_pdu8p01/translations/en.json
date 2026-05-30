@@ -36,6 +36,10 @@
     "reload_config": {
       "name": "Reload configuration",
       "description": "Reloads the outlet names and delay times directly from the PDU."
+    },
+    "restart_outlet": {
+      "name": "Restart outlet",
+      "description": "Briefly turns an outlet off and back on (or just on)."
     }
   },
   "options": {

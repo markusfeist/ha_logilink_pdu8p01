@@ -122,19 +122,27 @@ class LogiLinkPDU8P01API:
         _LOGGER.debug("PDU info_system.htm: %s", resp.text[:1000])
         return self._parse_system_info(resp.text)
 
-    def set_outlet(self, outlet_index: int, state: bool) -> None:
-        """Steckdose schalten.
+    def set_outlet(self, outlet_index: int, state: bool | int) -> None:
+        """Steckdose schalten oder neu starten.
 
         Verifiziertes Format:
-          GET /control_outlet.htm?outlet{N}=1&op={0|1}&submit=Apply
-          op=0 = einschalten, op=1 = ausschalten
+          GET /control_outlet.htm?outlet{N}=1&op={0|1|2}&submit=Apply
+          op=0 = einschalten
+          op=1 = ausschalten
+          op=2 = neustarten (kurze Unterbrechung)
         """
         if not 0 <= outlet_index <= 7:
             raise ValueError(f"Outlet-Index muss 0–7 sein, nicht {outlet_index}")
 
+        # op bestimmen: True -> 0 (ON), False -> 1 (OFF), 2 -> 2 (RESTART)
+        if isinstance(state, bool):
+            op = "0" if state else "1"
+        else:
+            op = str(state)
+
         params = {
             f"outlet{outlet_index}": "1",
-            "op": "0" if state else "1",
+            "op": op,
             "submit": "Apply",
         }
         url = CONTROL_URL.format(host=self.host)
@@ -253,22 +261,22 @@ class LogiLinkPDU8P01API:
         def _find(label: str, input_name: str) -> str:
             # Versuche Format 1: <td>Label</td><td>Wert</td>
             # Wir erlauben optionale Tags (wie <strong>) um das Label
-            m = re.search(
-                rf"(?:{label}).*?<td>([^<]+)</td>",
+            info_match = re.search(
+                rf"<td>\s*{label}\s*</td>\s*<td>\s*([^<]+?)\s*</td>",
                 html, re.IGNORECASE | re.DOTALL
             )
-            if m:
-                res = m.group(1).strip()
+            if info_match:
+                res = info_match.group(1).strip()
                 if res.replace("&nbsp;", "").strip():
                     return res.replace("&nbsp;", "").strip()
 
             # Versuche Format 2: <input name="input_name" ... value="Wert">
-            m = re.search(
+            info_match = re.search(
                 rf'name="{input_name}"[^>]+value="([^"]*)"',
                 html, re.IGNORECASE | re.DOTALL
             )
-            if m:
-                return m.group(1).strip()
+            if info_match:
+                return info_match.group(1).strip()
 
             return ""
 
@@ -281,9 +289,9 @@ class LogiLinkPDU8P01API:
         firmware = _find("Firmware version", "firmware")
         if not firmware:
             # Spezieller Fall für die Tabelle oben im realen Gerät
-            m = re.search(r"Firmware\s+version.*?<td>([^<]+)</td>", html, re.I | re.S)
-            if m:
-                firmware = m.group(1).strip()
+            fw_match = re.search(r"Firmware\s+version.*?<td>([^<]+)</td>", html, re.I | re.S)
+            if fw_match:
+                firmware = fw_match.group(1).strip()
 
         return {
             "mac": mac,
