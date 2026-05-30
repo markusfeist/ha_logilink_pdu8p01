@@ -21,7 +21,7 @@ from datetime import timedelta
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform, CONF_SCAN_INTERVAL
 from homeassistant.core import HomeAssistant, ServiceCall
-from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import entity_registry as er, device_registry as dr
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
@@ -49,14 +49,48 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-    async def reload_config_service(_call) -> None:
+    async def reload_config_service(call: ServiceCall) -> None:
         """Service zum Neuladen der PDU-Konfiguration (Namen & Delays)."""
-        _LOGGER.info("PDU-Konfiguration wird manuell neu geladen.")
-        await coordinator.async_refresh_config()
+        _LOGGER.info("reload_config Service aufgerufen mit Daten: %s", call.data)
+        
+        device_ids = call.data.get("device_id", [])
+        
+        coordinators_to_reload = []
+        
+        if not device_ids:
+            # Wenn keine Geräte ausgewählt wurden, alle PDUs dieser Integration neu laden
+            coordinators_to_reload = list(hass.data.get(DOMAIN, {}).values())
+            _LOGGER.info("Keine Geräte angegeben, lade alle %d PDUs neu.", len(coordinators_to_reload))
+        else:
+            # Nur ausgewählte PDUs neu laden
+            dev_reg = dr.async_get(hass)
+            for device_id in device_ids:
+                device = dev_reg.async_get(device_id)
+                if not device:
+                    _LOGGER.warning("Gerät mit ID %s nicht gefunden.", device_id)
+                    continue
+                
+                # Finde das Config Entry für dieses Gerät
+                # Ein Gerät kann mehrere Config Entries haben, wir suchen die für unsere Domain
+                for entry_id in device.config_entries:
+                    if entry_id in hass.data.get(DOMAIN, {}):
+                        coordinators_to_reload.append(hass.data[DOMAIN][entry_id])
+            
+            _LOGGER.info("Lade Konfiguration für %d ausgewählte PDUs neu.", len(coordinators_to_reload))
 
-    hass.services.async_register(
-        DOMAIN, "reload_config", reload_config_service
-    )
+        for coord in coordinators_to_reload:
+            _LOGGER.info("Lade Konfiguration für PDU '%s' neu.", coord.entry.title)
+            await coord.async_refresh_config()
+
+    if not hass.services.has_service(DOMAIN, "reload_config"):
+        hass.services.async_register(
+            DOMAIN, 
+            "reload_config", 
+            reload_config_service,
+            schema=vol.Schema({
+                vol.Optional("device_id"): cv.ensure_list,
+            })
+        )
 
     async def restart_outlet_service(call: ServiceCall) -> None:
         """Service zum Neustarten einer Steckdose über die native PDU-Funktion (op=2)."""
@@ -111,14 +145,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             except Exception as err:
                 _LOGGER.error("Fehler beim Neustart der Steckdose %s: %s", entity_id, err)
 
-    hass.services.async_register(
-        DOMAIN, 
-        "restart_outlet", 
-        restart_outlet_service,
-        schema=vol.Schema({
-            vol.Required("entity_id"): cv.entity_ids,
-        })
-    )
+    if not hass.services.has_service(DOMAIN, "restart_outlet"):
+        hass.services.async_register(
+            DOMAIN, 
+            "restart_outlet", 
+            restart_outlet_service,
+            schema=vol.Schema({
+                vol.Required("entity_id"): cv.entity_ids,
+            })
+        )
 
     return True
 
@@ -128,9 +163,12 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:
         hass.data[DOMAIN].pop(entry.entry_id)
-        # Service entfernen (nur wenn es der letzte Eintrag war, HA macht das meist automatisch pro Domain)
+        # Services entfernen (nur wenn es der letzte Eintrag war)
         if not hass.data[DOMAIN]:
-            hass.services.async_remove(DOMAIN, "reload_config")
+            if hass.services.has_service(DOMAIN, "reload_config"):
+                hass.services.async_remove(DOMAIN, "reload_config")
+            if hass.services.has_service(DOMAIN, "restart_outlet"):
+                hass.services.async_remove(DOMAIN, "restart_outlet")
     return unload_ok
 
 
