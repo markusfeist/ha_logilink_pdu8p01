@@ -7,6 +7,7 @@ restart_outlet:
     entity_id:
       name: Entität
       description: Die Steckdose(n), die neu gestartet werden sollen.
+      required: true
       example: switch.pdu_outlet_1
       selector:
         entity:
