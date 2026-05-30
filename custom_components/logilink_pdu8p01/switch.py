@@ -126,7 +126,7 @@ class PDUOutletSwitch(CoordinatorEntity[PDUDataUpdateCoordinator], SwitchEntity)
         # noinspection HttpUrlsUsage
         info = DeviceInfo(
             identifiers={(DOMAIN, self._entry.entry_id)},
-            name=f"LogiLink PDU8P01 ({self._entry.data['host']})",
+            name=self._entry.title,
             manufacturer="LogiLink",
             model="PDU8P01",
             sw_version=self.coordinator.system_info.get("firmware"),

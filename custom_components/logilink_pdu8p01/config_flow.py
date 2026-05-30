@@ -49,8 +49,12 @@ class LogiLinkPDU8P01ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 password=user_input[CONF_PASSWORD],
             )
             try:
+                # Verbindung testen
                 # noinspection PyTypeChecker
                 await self.hass.async_add_executor_job(api.get_status)
+                # System-Informationen abrufen (Name, Location)
+                # noinspection PyTypeChecker
+                system_info = await self.hass.async_add_executor_job(api.get_system_info)
             except PDUConnectionError:
                 errors["base"] = "cannot_connect"
             # noinspection PyBroadException
@@ -58,10 +62,17 @@ class LogiLinkPDU8P01ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 _LOGGER.exception("Unerwarteter Fehler: %s", err)
                 errors["base"] = "unknown"
             else:
-                await self.async_set_unique_id(user_input[CONF_HOST])
+                # Eindeutige ID setzen (bevorzugt MAC, sonst Host)
+                unique_id = system_info.get("mac") or user_input[CONF_HOST]
+                await self.async_set_unique_id(unique_id)
                 self._abort_if_unique_id_configured()
+                
+                title = system_info.get("name") or user_input[CONF_HOST]
+                if system_info.get("location"):
+                    title = f"{title} ({system_info['location']})"
+                
                 return self.async_create_entry(
-                    title=f"PDU ({user_input[CONF_HOST]})",
+                    title=title,
                     data=user_input,
                 )
         return self.async_show_form(
