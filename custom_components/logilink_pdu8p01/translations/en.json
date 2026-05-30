@@ -19,6 +19,19 @@
       "already_configured": "This PDU is already configured."
     }
   },
+  "entity": {
+    "sensor": {
+      "pdu_system_name": {
+        "name": "System Name"
+      },
+      "pdu_firmware": {
+        "name": "Firmware Version"
+      },
+      "pdu_location": {
+        "name": "System Location"
+      }
+    }
+  },
   "services": {
     "reload_config": {
       "name": "Reload configuration",

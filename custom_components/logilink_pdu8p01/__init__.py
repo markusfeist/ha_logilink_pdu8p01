@@ -20,6 +20,7 @@ from datetime import timedelta
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform, CONF_SCAN_INTERVAL
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .const import DOMAIN, DEFAULT_SCAN_INTERVAL
@@ -80,6 +81,13 @@ class PDUDataUpdateCoordinator(DataUpdateCoordinator):
             "on_delays": [0] * 8,
             "off_delays": [0] * 8,
         }
+        # Systeminformationen (MAC, Firmware, Name, Location)
+        self.system_info: dict[str, str] = {
+            "mac": "",
+            "firmware": "",
+            "name": "",
+            "location": "",
+        }
         super().__init__(
             hass,
             _LOGGER,
@@ -91,13 +99,25 @@ class PDUDataUpdateCoordinator(DataUpdateCoordinator):
 
     async def async_config_entry_first_refresh(self) -> None:
         """Beim ersten Start auch die Konfiguration laden."""
+        await self._async_refresh_system_info_internal()
         await self._async_refresh_config_internal()
         await super().async_config_entry_first_refresh()
 
     async def async_refresh_config(self) -> None:
         """Manuelles Neuladen der Konfiguration und Benachrichtigung der Entitäten."""
+        await self._async_refresh_system_info_internal()
         await self._async_refresh_config_internal()
         self.async_update_listeners()
+
+    async def _async_refresh_system_info_internal(self) -> None:
+        """MAC, Firmware und Name von info_system.htm abrufen."""
+        try:
+            self.system_info = await self.hass.async_add_executor_job(
+                self.api.get_system_info
+            )
+            _LOGGER.debug("PDU-Systeminfo geladen: %s", self.system_info)
+        except Exception as err:
+            _LOGGER.warning("Systeminfoabfrage fehlgeschlagen: %s", err)
 
     async def _async_refresh_config_internal(self) -> None:
         """Namen und Delays von config_PDU.htm abrufen."""
@@ -122,4 +142,10 @@ class PDUDataUpdateCoordinator(DataUpdateCoordinator):
         status["outlet_names"] = self.pdu_config.get(
             "outlet_names", [f"Steckdose {i + 1}" for i in range(8)]
         )
+
+        # System-Infos hinzufügen
+        status["pdu_system_name"] = self.system_info.get("name")
+        status["pdu_firmware"] = self.system_info.get("firmware")
+        status["pdu_location"] = self.system_info.get("location")
+
         return status

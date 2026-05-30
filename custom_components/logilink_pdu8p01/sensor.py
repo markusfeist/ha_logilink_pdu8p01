@@ -30,6 +30,7 @@ from homeassistant.const import (
     PERCENTAGE,
 )
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -69,6 +70,24 @@ SENSOR_DESCRIPTIONS: tuple[PDUSensorEntityDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda d: d.get("humidity"),
     ),
+    PDUSensorEntityDescription(
+        key="pdu_system_name",
+        name="Systemname",
+        icon="mdi:information-outline",
+        value_fn=lambda d: d.get("pdu_system_name"),
+    ),
+    PDUSensorEntityDescription(
+        key="pdu_firmware",
+        name="Firmware Version",
+        icon="mdi:version",
+        value_fn=lambda d: d.get("pdu_firmware"),
+    ),
+    PDUSensorEntityDescription(
+        key="pdu_location",
+        name="Standort",
+        icon="mdi:map-marker",
+        value_fn=lambda d: d.get("pdu_location"),
+    ),
 )
 
 
@@ -94,7 +113,7 @@ class PDUSensor(CoordinatorEntity[PDUDataUpdateCoordinator], SensorEntity):
         self._attr_unique_id = f"{entry.entry_id}_{description.key}"
 
     @property
-    def native_value(self) -> float | None:
+    def native_value(self) -> float | str | None:
         if self.coordinator.data is None:
             return None
         return self.entity_description.value_fn(self.coordinator.data)
@@ -103,10 +122,18 @@ class PDUSensor(CoordinatorEntity[PDUDataUpdateCoordinator], SensorEntity):
     def device_info(self) -> DeviceInfo:
         # Ist halt eine HTTP-API
         # noinspection HttpUrlsUsage
-        return DeviceInfo(
+        info = DeviceInfo(
             identifiers={(DOMAIN, self._entry.entry_id)},
             name=f"LogiLink PDU8P01 ({self._entry.data['host']})",
             manufacturer="LogiLink",
             model="PDU8P01",
+            sw_version=self.coordinator.system_info.get("firmware"),
+            hw_version=None,
             configuration_url=f"http://{self._entry.data['host']}",
         )
+
+        mac = self.coordinator.system_info.get("mac")
+        if mac:
+            info["connections"] = {(dr.CONNECTION_NETWORK_MAC, dr.format_mac(mac))}
+
+        return info

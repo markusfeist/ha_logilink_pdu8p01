@@ -21,6 +21,7 @@ from typing import Any
 from homeassistant.components.switch import SwitchEntity, SwitchDeviceClass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -123,13 +124,21 @@ class PDUOutletSwitch(CoordinatorEntity[PDUDataUpdateCoordinator], SwitchEntity)
     def device_info(self) -> DeviceInfo:
         # Ist halt eine HTTP-API
         # noinspection HttpUrlsUsage
-        return DeviceInfo(
+        info = DeviceInfo(
             identifiers={(DOMAIN, self._entry.entry_id)},
             name=f"LogiLink PDU8P01 ({self._entry.data['host']})",
             manufacturer="LogiLink",
             model="PDU8P01",
+            sw_version=self.coordinator.system_info.get("firmware"),
+            hw_version=None,
             configuration_url=f"http://{self._entry.data['host']}",
         )
+
+        mac = self.coordinator.system_info.get("mac")
+        if mac:
+            info["connections"] = {(dr.CONNECTION_NETWORK_MAC, dr.format_mac(mac))}
+
+        return info
 
     # ------------------------------------------------------------------
     # Schalt-Aktionen

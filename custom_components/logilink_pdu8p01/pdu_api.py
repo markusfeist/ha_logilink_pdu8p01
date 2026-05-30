@@ -38,6 +38,8 @@ STATUS_URL = "http://{host}/status.xml"
 CONFIG_URL = "http://{host}/config_PDU.htm"
 # noinspection HttpUrlsUsage
 CONTROL_URL = "http://{host}/control_outlet.htm"
+# noinspection HttpUrlsUsage
+INFO_URL = "http://{host}/info_system.htm"
 
 
 class PDUConnectionError(Exception):
@@ -100,6 +102,25 @@ class LogiLinkPDU8P01API:
 
         _LOGGER.debug("PDU config_PDU.htm: %s", resp.text[:1000])
         return self._parse_config(resp.text)
+
+    def get_system_info(self) -> dict[str, str]:
+        """Systeminformationen von /info_system.htm abrufen.
+
+        Gibt zurück:
+          mac       – MAC-Adresse
+          firmware  – Firmware-Version
+          name      – Systemname
+          location  – Standort (System Location)
+        """
+        url = INFO_URL.format(host=self.host)
+        try:
+            resp = requests.get(url, auth=self.auth, timeout=self.timeout)
+            resp.raise_for_status()
+        except requests.RequestException as exc:
+            raise PDUConnectionError(f"Systeminfoabfrage fehlgeschlagen: {exc}") from exc
+
+        _LOGGER.debug("PDU info_system.htm: %s", resp.text[:1000])
+        return self._parse_system_info(resp.text)
 
     def set_outlet(self, outlet_index: int, state: bool) -> None:
         """Steckdose schalten.
@@ -218,4 +239,55 @@ class LogiLinkPDU8P01API:
             "outlet_names": outlet_names,
             "on_delays": on_delays,
             "off_delays": off_delays,
+        }
+
+    @staticmethod
+    def _parse_system_info(html: str) -> dict[str, str]:
+        """MAC, Firmware und Name aus /info_system.htm parsen.
+
+        Unterstützt zwei Formate:
+        1. <td>Label</td><td>Wert</td>
+        2. <input name="key" value="Wert">
+        """
+
+        def _find(label: str, input_name: str) -> str:
+            # Versuche Format 1: <td>Label</td><td>Wert</td>
+            # Wir erlauben optionale Tags (wie <strong>) um das Label
+            m = re.search(
+                rf"(?:{label}).*?<td>([^<]+)</td>",
+                html, re.IGNORECASE | re.DOTALL
+            )
+            if m:
+                res = m.group(1).strip()
+                if res.replace("&nbsp;", "").strip():
+                    return res.replace("&nbsp;", "").strip()
+
+            # Versuche Format 2: <input name="input_name" ... value="Wert">
+            m = re.search(
+                rf'name="{input_name}"[^>]+value="([^"]*)"',
+                html, re.IGNORECASE | re.DOTALL
+            )
+            if m:
+                return m.group(1).strip()
+
+            return ""
+
+        # MAC-Adresse: Suche zuerst im Text nach dem Muster, da Labeling oft variiert
+        mac_pattern = r"(([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2})"
+        mac_match = re.search(mac_pattern, html)
+        mac = mac_match.group(1) if mac_match else _find("MAC Address", "mac")
+
+        # Firmware kann auch in einem <td> ohne <input> stehen, oft mit zwei Leerzeichen
+        firmware = _find("Firmware version", "firmware")
+        if not firmware:
+            # Spezieller Fall für die Tabelle oben im realen Gerät
+            m = re.search(r"Firmware\s+version.*?<td>([^<]+)</td>", html, re.I | re.S)
+            if m:
+                firmware = m.group(1).strip()
+
+        return {
+            "mac": mac,
+            "firmware": firmware,
+            "name": _find("System Name", "sysnm"),
+            "location": _find("System Location", "loc"),
         }
